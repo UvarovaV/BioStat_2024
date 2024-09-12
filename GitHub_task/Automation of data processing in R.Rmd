@@ -200,3 +200,5 @@ round(describe(statistics),2)
 **inner_join(x, y)**: включает все строки, которые есть и в x и y;
 
 **full_join(x, y)**: просто включает все строки, которые есть хотя бы в x или y.
+
+correct 
