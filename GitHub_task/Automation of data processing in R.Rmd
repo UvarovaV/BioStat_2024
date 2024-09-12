@@ -133,7 +133,7 @@ sd(с5)/sqrt(sum(!is.na(с5)))
 **x**: датафрейм с количественными переменными; **digits** = 2: до скольки цифр округлять значения в итоговой таблице; **na.rm** = TRUE: удалять пропущенные значения в переменных; **skew** = TRUE: вычислять асимметрию; **ranges** = TRUE: вычислять размах, то есть, разницу между максимумом и минимумом.
 
 ```{r describe}
-statistics <- readRDS("/Users/vika/Yandex.Disk.localized/R/BioStat2024/numeric_data.rds")
+statistics <- readRDS("numeric_data.rds")
 round(describe(statistics),2)
 ```
 
@@ -200,5 +200,3 @@ round(describe(statistics),2)
 **inner_join(x, y)**: включает все строки, которые есть и в x и y;
 
 **full_join(x, y)**: просто включает все строки, которые есть хотя бы в x или y.
-
-correct +++
