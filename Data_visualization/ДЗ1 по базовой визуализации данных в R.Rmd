@@ -1,0 +1,10 @@
+---
+title: "ДЗ1 по базовой визуализации данных в R"
+author: "Uvarova Victoria"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
