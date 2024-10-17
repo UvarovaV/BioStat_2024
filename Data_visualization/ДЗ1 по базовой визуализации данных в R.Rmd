@@ -118,7 +118,7 @@ ggplot(hogwarts)+
 ```{r}
 ggplot(hogwarts)+
   geom_boxplot(aes(x = fct_reorder(house, week_3, .fun = median, .desc = TRUE), y = week_3, fill = bloodStatus),
-               size = 0.3, width = 0.6, alpha = 0.8, outlier.shape = NA, position = position_dodge(width = 0.75))+
+               size = 0.3, width = 0.5, alpha = 0.8, outlier.shape = NA, position = position_dodge(width = 0.6))+
   
 labs(title = "Распределение баллов студентов по факультетам", subtitle = "Сравнение баллов за 3-ю неделю", caption = "2024 год", x = "Факультет", y = "Баллы (неделя 3)") +
   
@@ -126,11 +126,11 @@ labs(title = "Распределение баллов студентов по ф
                                "muggle-born" = "#4292c6", 
                                "pure-blood" = "#084594"))+
   
-  scale_color_manual(values = c("half-blood" = "black",
-                                "muggle-born" = "black", 
-                                "pure-blood" = "black")) +
+ scale_colour_manual(values = c("half-blood" = "black",
+                               "muggle-born" = "#4292c6", 
+                               "pure-blood" = "#084594"))+
   
-geom_jitter(aes(x = fct_reorder(house, week_3, .fun = median, .desc = TRUE), y = week_3, color = bloodStatus), size = 1, alpha = 1, position = position_jitterdodge(dodge.width = 0.6))  +
+geom_jitter(aes(x = fct_reorder(house, week_3, .fun = median, .desc = TRUE), y = week_3, color = bloodStatus), size = 1.5, alpha = 1, position = position_jitterdodge(dodge.width = 0.6, jitter.width = 0.1))  +
   
   theme_bw()+ theme_custom
 
