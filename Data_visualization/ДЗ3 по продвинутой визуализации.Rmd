@@ -1,0 +1,221 @@
+---
+title: "ДЗ3 по продвинутой визуализации"
+author: "Uvarova Victoria"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: yes
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, error = FALSE)
+
+library(tidyverse)
+library(GGally) #ggpairs
+library(RColorBrewer)
+library(rstatix) #стат тесты
+library(ggpubr) #stat_pvalue_manual
+library(ggpubr) #построение барплотов
+library(corrplot)
+library(corrr) #близости переменных с точки зрения сетевого анализа
+library(pheatmap)
+library(ggdendro) #визуализация дендрограмм с ggplot2
+library(factoextra) #fviz_eig график - оптимальное кол-во компонент для анализа; fviz_pca_var
+library(ggbiplot)
+library(plotly) #интерактивные графики
+library(tidymodels) #модели маш обучение
+library(embed) #расширение для tidymodels
+library(patchwork) #соединение графиков на одной картинке
+```
+
+## Задание 1
+
+```{r}
+VLB <- readRDS("very_low_birthweight.RDS")
+
+VLB_cor <- VLB %>% 
+  select(where(~ sum(is.na(.)) <= 100)) %>%
+  drop_na() %>% 
+  dplyr::mutate(across(c(twn, vent, pneumo, pda, cld, dead), as.factor))
+
+glimpse(VLB_cor)
+```
+
+## Задание 2
+
+```{r, fig.width = 12, fig.height = 12}
+
+theme_custom <- theme(
+  panel.background = element_rect(fill = "white", colour = NA),
+  plot.background = element_rect(fill = "white", colour = NA),
+  strip.background = element_rect(fill = "white", colour = NA),
+  panel.grid.major = element_line(colour = "grey90"),
+  panel.grid.minor = element_blank(),
+  panel.border = element_rect(colour = "black", fill = NA),
+    axis.text = element_text(size = 12),
+    axis.title = element_text(size = 18),
+    legend.title = element_text(size = 18),
+    legend.text = element_text(size = 18),
+  strip.text = element_text(size = 18))
+
+VLB_cor_without_outliers <- VLB_cor %>%
+  filter(across(where(is.numeric), ~ between(., quantile(., 0.25) - 1.5 * IQR(.), quantile(., 0.75) + 1.5 * IQR(.))))
+
+DensityPlot <- 
+  VLB_cor_without_outliers %>%
+  select(where(is.numeric), -birth, -exit, -year) %>%
+  ggpairs(upper = list(continuous = wrap("cor", size = 6)))
+
+DensityPlot + theme_custom
+```
+
+```{r, fig.width = 8, fig.height = 8}
+DensityPlot_bwt_gest <- ggpairs(
+  VLB_cor_without_outliers, 
+  columns = c("bwt", "gest"), 
+  mapping = aes(color = inout),
+  upper = list(continuous = wrap("cor", size = 6)),
+  diag = list(continuous = wrap("densityDiag", alpha = 0.8)))
+
+DensityPlot_bwt_gest + theme_custom + scale_color_brewer(palette = "Set1") + scale_fill_brewer(palette = "Set1")
+```
+
+## Задание 3
+
+```{r, fig.width = 6, fig.height = 6}
+VLB_cor %>% 
+  rstatix::t_test(lowph ~ inout) %>% 
+  add_significance() -> test_results
+
+ggbarplot(VLB_cor, 
+          x = "inout", 
+          y = "lowph", 
+          add = c("mean_se", "jitter"),
+          fill = "inout", 
+          color = "black", 
+          palette = "Set1",
+          width = 0.6) +
+  stat_pvalue_manual(test_results, 
+                     label = "{p.signif}", 
+                     y.position = max(VLB_cor$lowph, na.rm = TRUE) + 0.5, size = 7) +
+  scale_y_continuous(limits = c(0, 8.5)) +
+  theme_custom +
+  theme(axis.title.x = element_blank(),
+        legend.title = element_blank())
+```
+
+Интерпретация: я бы могла предположить, что пациенты из группы "transported" имеют более высокий риск неблагоприятного исхода (смерти) по сравнению с группой "born at Duke".
+
+## Задание 4
+
+```{r, fig.width = 5, fig.height = 4}
+VLB_cor_num <- VLB_cor %>%
+  select(where(is.numeric), -birth, -exit, -year)
+
+VLB_cor_num_cor <- cor(VLB_cor_num) 
+
+corrplot(VLB_cor_num_cor, method = 'number')
+
+VLB_cor_num_cor %>% network_plot(min_cor = .0)
+```
+
+## Задание 5
+
+```{r, fig.width = 5, fig.height = 4}
+VLB_cor_num_scaled <- scale(VLB_cor_num)
+VLB_cor_num_scaled_dist <- dist(VLB_cor_num_scaled, method = "euclidean")
+
+hc <- hclust(VLB_cor_num_scaled_dist, method = "ward.D2")
+
+dendro_data <- dendro_data(hc)
+
+ggplot(segment(dendro_data)) +
+  geom_segment(aes(x = x, y = y, xend = xend, yend = yend)) +
+  labs(title = "Hierarchical clustering dendrogram of variables", x = "Variables", y = "Height") +
+  theme_custom
+```
+
+## Задание 6
+
+```{r, fig.width = 6, fig.height = 4}
+pheatmap(VLB_cor_num_scaled, 
+         clustering_distance_rows = VLB_cor_num_scaled_dist,
+         cutree_cols = length(colnames(VLB_cor_num_scaled)),
+         angle_col = 45, 
+         main = "Dendrograms for clustering rows and columns with heatmap")
+```
+
+Интерпретация: Столбцы, которые кластеризуются вместе, могут быть взаимосвязаны. Например, вес при рождении (bwt) и гестационный возраст (gest) могут быть связаны, что звучит логично, т.к. чем меньше гестационный возраст, тем ниже будет вес при рождении.
+
+## Задание 7
+
+```{r}
+VLB_cor_num_pca <- prcomp(VLB_cor_num, scale = T)
+summary(VLB_cor_num_pca)
+fviz_eig(VLB_cor_num_pca, addlabels = T, ylim = c(0, 50))
+```
+
+Первые две компоненты объясняют 57% дисперсии. Первые 3 компоненты объясняют более 70% дисперсии. Следующая важная отметка в 90% достигается на PC5. Вокруг PC1 и PC2 будет строиться анализ. Шкалирование для этих данных перед проведением PCA применять нужно, если в самой функции оно отключено: prcomp(df, scale = F) и не нужно, если оно проводится в самой функции prcomp(df, scale = T).
+
+```{r}
+fviz_pca_var(VLB_cor_num_pca, col.var = "contrib")
+
+fviz_pca_var(VLB_cor_num_pca, 
+             select.var = list(contrib = 3),
+             col.var = "contrib")
+
+fviz_contrib(VLB_cor_num_pca, choice = "var", axes = 1, top = 24) # 1
+fviz_contrib(VLB_cor_num_pca, choice = "var", axes = 2, top = 24) # 2
+```
+
+## Задание 8
+
+```{r, fig.width = 6, fig.height = 6}
+biplot <- ggbiplot(VLB_cor_num_pca, 
+         scale=0, 
+         groups = VLB_cor$dead, 
+         ellipse = T,
+         alpha = 0.3) +
+  scale_colour_brewer(palette = "Set1") +
+  theme_custom
+biplot
+```
+
+## Задание 9
+
+```{r, fig.width = 6, fig.height = 6}
+VLB_cor_num_id <- VLB_cor_num %>% 
+  mutate(id = as.integer(row_number()))
+
+biplot_id <- biplot +
+  geom_point(aes(text = paste("ID:", VLB_cor_num_id$id)), alpha = 0)
+
+ggplotly(biplot_id, tooltip = "text")
+```
+
+## Задание 10
+
+Первые 3 компоненты объясняют более 70% дисперсии, то есть алгоритм сработал хорошо и первые 3 агреггируют в себе большую часть сложности данных. Для анализа были использованы первые 2 компоненты, т.к. они объясняют более 50% дисперсии. Наблюдается наибольший вклад переменных вес при рождении (bwt), гестационный возраст (gest) и количество тромбоцитов (pltct) в две первые главные компоненты (Dim1 и Dim2). gest и bwt скоррелированы и имеют наибольший вклад в первую компоненту, переменная lowph тоже вносит значимый вклад, тк эти значения выше красной линии (средний ожидаемый вклад). Во вторую компоненту наибольший вклад вносят переменные pltct и hospstay. Использование переменной dead некорректно, так как PCA служит для преобразования общей структуры данных, а не для анализа и выводов о выживаемости. Ассоциации требуют других моделей.
+
+## Задание 11
+
+```{r, fig.width = 12, fig.height = 12}
+umap_prep <- recipe(~., data = VLB_cor_num) %>% 
+  step_normalize(all_predictors()) %>%
+  step_umap(all_predictors()) %>%
+  prep() %>%
+  juice()
+
+umapplot <- umap_prep %>%
+  ggplot(aes(UMAP1, UMAP2)) +
+  geom_point(aes(color = VLB_cor$dead),
+             alpha = 0.5, size = 1.5) +
+  labs(color = NULL) +
+  scale_colour_brewer(palette = "Set1") +
+  theme_custom
+
+umapplot + biplot
+```
+
+
